@@ -1,3 +1,5 @@
+'use strict';
+
 exports = module.exports = SemVer;
 
 // The debug function is excluded entirely from the minified version.
@@ -20,6 +22,8 @@ exports.SEMVER_SPEC_VERSION = '2.0.0';
 
 var MAX_LENGTH = 256;
 var MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER || 9007199254740991;
+var NO_ERROR = false;
+var DEFAULT_VERSION = '0.0.0';
 
 // The actual regexps go on exports.re
 var re = exports.re = [];
@@ -232,6 +236,19 @@ for (var i = 0; i < R; i++) {
     re[i] = new RegExp(src[i]);
 }
 
+exports.setErrorMode = setErrorMode;
+function setErrorMode(noError, defaultVersion) {
+  // this function can change default NO_ERROR and DEFAULT_VERSION.
+  // When call Semver(), if NO_ERROR is true, then will use DEFAULT_VERSION instead of throw errors
+  // But, defaultVersion must be strictly correct. If not correct, TypeError will be thrown
+  if (valid(defaultVersion)) {
+    NO_ERROR = !!noError;
+    DEFAULT_VERSION = defaultVersion;
+  } else {
+    throw new TypeError('Invalid Version: ' + defaultVersion);
+  }
+}
+
 exports.parse = parse;
 function parse(version, loose) {
   if (version instanceof SemVer)
@@ -270,17 +287,24 @@ function clean(version, loose) {
 exports.SemVer = SemVer;
 
 function SemVer(version, loose) {
+  function throwTypeError(msg) {
+    // is NO_ERROR is true, then use DEFAULT_VERSION
+    if (NO_ERROR) {
+      return new SemVer(DEFAULT_VERSION, loose);
+    }
+    throw new TypeError(msg);
+  }
   if (version instanceof SemVer) {
     if (version.loose === loose)
       return version;
     else
       version = version.version;
   } else if (typeof version !== 'string') {
-    throw new TypeError('Invalid Version: ' + version);
+    return throwTypeError('Invalid Version: ' + version);
   }
 
   if (version.length > MAX_LENGTH)
-    throw new TypeError('version is longer than ' + MAX_LENGTH + ' characters')
+    return throwTypeError('version is longer than ' + MAX_LENGTH + ' characters');
 
   if (!(this instanceof SemVer))
     return new SemVer(version, loose);
@@ -290,7 +314,7 @@ function SemVer(version, loose) {
   var m = version.trim().match(loose ? re[LOOSE] : re[FULL]);
 
   if (!m)
-    throw new TypeError('Invalid Version: ' + version);
+    return throwTypeError('Invalid Version: ' + version);
 
   this.raw = version;
 
@@ -300,13 +324,13 @@ function SemVer(version, loose) {
   this.patch = +m[3];
 
   if (this.major > MAX_SAFE_INTEGER || this.major < 0)
-    throw new TypeError('Invalid major version')
+    return throwTypeError('Invalid major version');
 
   if (this.minor > MAX_SAFE_INTEGER || this.minor < 0)
-    throw new TypeError('Invalid minor version')
+    return throwTypeError('Invalid minor version');
 
   if (this.patch > MAX_SAFE_INTEGER || this.patch < 0)
-    throw new TypeError('Invalid patch version')
+    return throwTypeError('Invalid patch version');
 
   // numberify any prerelease numeric ids
   if (!m[4])

@@ -1,6 +1,15 @@
 semver(1) -- The semantic versioner for npm
 ===========================================
 
+## Diff
+When calling to `new Semver(version, loose)`, will not throw `TypeError`,
+if `NO_ERROR` is `true`. It will use `DEFAULT_VERSION` to replace the wrong
+version.
+
+1. add `NO_ERROR` and `DEFAULT_VERSION`.
+2. add function `setErrorMode(noError, defaultVersion)`, it is the setter function for `NO_ERROR` and `DEFAULT_VERSION`.
+3. add sub-function `throwTypeError(msg)`. It will throw error or replace version depends on `NO_ERROR`.
+
 ## Usage
 
     $ npm install semver
